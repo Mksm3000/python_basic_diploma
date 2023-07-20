@@ -3,7 +3,10 @@ from loader import bot
 
 
 def buttons_generator(message, cities):
-    cities_markup = types.InlineKeyboardMarkup()
-    for key, value in cities.items():
-        cities_markup.add(types.InlineKeyboardButton(text=key, callback_data=str(value)))
+    cities_markup = types.InlineKeyboardMarkup(row_width=1)
+
+    for city_name, city_id in cities.items():
+        button = types.InlineKeyboardButton(text=city_name, callback_data=city_id)
+        cities_markup.add(button)
+
     bot.send_message(message.from_user.id, "Выберите ниже один из вариантов", reply_markup=cities_markup)

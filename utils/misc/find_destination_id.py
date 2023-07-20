@@ -11,7 +11,6 @@ headers = {
 
 
 def destination_id(city: str):
-    pattern = '<[^>]*>'
     querystring = {"q": city, "locale": "en_US", "langid": "1033", "siteid": "300000001"}
     response = requests.get(city_url, headers=headers, params=querystring)
     data = json.loads(response.text)
@@ -19,10 +18,9 @@ def destination_id(city: str):
     for element in data['sr']:
         element_fullname = element['regionNames']['fullName']
         element_id = element['essId']['sourceId']
-        print(f"Fullname: {element_fullname}, ID: {element_id}")
+        # справочная печать в терминал
+        # print(f"Fullname: {element_fullname}, ID: {element_id}")
         similar[element_fullname] = element_id
 
     return similar
-    #
-    # with open('temp.json', 'w', encoding='utf-8') as file:
-    #     json.dump(data, file, indent=4)
+
