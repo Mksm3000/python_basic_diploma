@@ -1,2 +1,1 @@
-from . import misc
-from . import set_bot_commands
+from . import rapid_api

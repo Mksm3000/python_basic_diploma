@@ -1,11 +1,16 @@
-from loader import bot
-import handlers  # noqa
-from utils.set_bot_commands import set_default_commands
-from telebot.custom_filters import StateFilter
+import handlers
+from loader import dp
+from data.database import create_database
+from aiogram import executor
 
 
-if __name__ == "__main__":
-    bot.add_custom_filter(StateFilter(bot))
-    set_default_commands(bot)
-    bot.infinity_polling()
+async def on_startup(_):
+    await create_database()
+    print(">>> TelegramBot is starting <<<")
+
+
+if __name__ == '__main__':
+    executor.start_polling(dispatcher=dp,
+                           on_startup=on_startup,
+                           skip_updates=True)
 
