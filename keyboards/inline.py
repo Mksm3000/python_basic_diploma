@@ -1,5 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from typing import Dict
+from typing import Dict, List
 
 
 def cities_kb(cities_dict: Dict) -> InlineKeyboardMarkup:
@@ -34,3 +34,13 @@ def photos_count_kb() -> InlineKeyboardMarkup:
         keyboard.insert(InlineKeyboardButton(f"{i+1}", callback_data=f"photos_count_{i+1}"))
 
     return keyboard
+
+
+def inline_paginate(data: List) -> InlineKeyboardMarkup:
+    """
+    data: Any ready-to-use keyboard InlineKeyboardMarkup or any iterable object with InlineKeyboardButton.
+    size: The number of rows of buttons on one page, excluding the navigation bar.
+    Return: A paginator object that, when called, returns a ready-made keyboard with pagination.
+    """
+    kb = types.InlineKeyboardMarkup()
+    paginator = Paginator(data=kb, size=5)

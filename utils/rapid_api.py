@@ -39,8 +39,12 @@ def get_city(city: str) -> Dict:
     return city_dict
 
 
-def get_hotels(data: Dict[str, Any]) -> Dict:
-    print(data)
+def price_sort(hotel: Dict):
+    return hotel["price"].split("$")[1]
+
+
+def get_hotels(data: Dict[str, Any]) -> List:
+    # print(data)
     url = "https://hotels4.p.rapidapi.com/properties/v2/list"
     payload = {
         "currency": "USD",
@@ -68,44 +72,52 @@ def get_hotels(data: Dict[str, Any]) -> Dict:
         "resultsSize": int(data['amount_hotels'].split('hotels_count_')[1]),
         "sort": "PRICE_LOW_TO_HIGH",
         "filters": {"price": {
-            "max": 150,
-            "min": 10
+            "max": int(data.get("price_max", 200)),
+            "min": int(data.get("price_min", 10))
         }}
     }
 
     response = api_query(method='post', url=url, params=payload)
     response_dict = json.loads(response.text)
-
-    hotels_dict = {}
     # print(response_dict)
+    hotels_list = list()
 
     for element in response_dict['data']['propertySearch']['properties']:
         if element.get("id") and element.get("name"):
-            hotel_temp = {}
-            hotel_name = element.get("name")
-            hotel_temp["id"] = element.get("id")
-            hotel_temp["price"] = element["price"]["displayMessages"][0]["lineItems"][0]["price"].get("formatted")
-            hotel_temp["price_total"] = element["price"]["displayMessages"][1]["lineItems"][0].get("value").split(' ')[0]
-            hotel_temp["score"] = element["reviews"].get("score")
-            hotel_temp["total"] = element["reviews"].get("total")
-            hotel_temp["image"] = element["propertyImage"]["image"].get("url").split('?impolicy')[0]
-            hotels_dict[hotel_name] = hotel_temp
+            hotel_temp = {"name": element.get("name"),
+                          "id": element.get("id"),
+                          "price": element["price"]["displayMessages"][0]["lineItems"][0]["price"].get("formatted"),
+                          "price_total": element["price"]["displayMessages"][1]["lineItems"][0].get("value").split(' ')[0],
+                          "score": element["reviews"].get("score"),
+                          "total": element["reviews"].get("total"),
+                          "image": get_hotel_photos(element["id"], data["amount_photos"])}
+            hotels_list.append(hotel_temp)
 
-    pprint(hotels_dict)
-    return hotels_dict
+    hotels_list.sort(key=price_sort)
+    # pprint(hotels_list)
+    return hotels_list
 
 
+def get_hotel_photos(hotel_id: str, amount_photo: str) -> List:
+    image_num = amount_photo.split('photos_count_')[1]
+    url = "https://hotels4.p.rapidapi.com/properties/v2/detail"
+    payload = {
+        "currency": "USD",
+        "eapid": 1,
+        "locale": "en_US",
+        "siteId": 300000001,
+        "propertyId": hotel_id
+    }
 
-# <<>><<>> properties/v2/detail <<>><<>>
-#
-# import requests
-# url = "https://hotels4.p.rapidapi.com/properties/v2/detail"
-# payload = {
-# 	"currency": "USD",
-# 	"eapid": 1,
-# 	"locale": "en_US",
-# 	"siteId": 300000001,
-# 	"propertyId": "9209612"
-# }
-# response = requests.post(url, json=payload, headers=headers)
-# print(response.json())
+    response = api_query(method='post', url=url, params=payload)
+    response_dict = json.loads(response.text)
+    # print(response_dict)
+    image_list = list()
+
+    for element in response_dict["data"]["propertyInfo"]["propertyGallery"]["images"]:
+        if element["image"].get("url") and (len(image_list) < int(image_num)):
+            image_link = element["image"]["url"].split('?impolicy')[0]
+            image_list.append(image_link)
+
+    # pprint(image_list)
+    return image_list

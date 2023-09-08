@@ -35,6 +35,10 @@ async def callback_city_id(callback: types.CallbackQuery, state: FSMContext) -> 
         async with state.proxy() as data:
             data['city_id'] = callback.data
 
+            for element in callback.message.reply_markup.inline_keyboard:
+                if element[0]["callback_data"] == callback.data:
+                    data['city_name'] = element[0]["text"]
+
         await UsersStates.next()
         calendar_1, step = DetailedTelegramCalendar(calendar_id=1,
                                                     locale='en',
@@ -108,6 +112,8 @@ async def callback_date_out(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query_handler(state=UsersStates.amount_hotels)
 async def check_amount_hotels(callback: types.CallbackQuery, state: FSMContext) -> None:
     if callback.data:
+        await bot.delete_message(callback.from_user.id, callback.message.message_id)
+        await callback.message.answer(text=f"Кол-во отелей: {callback.data.split('hotels_count_')[1]}")
         async with state.proxy() as data:
             data['amount_hotels'] = callback.data
 
@@ -119,15 +125,22 @@ async def check_amount_hotels(callback: types.CallbackQuery, state: FSMContext) 
 @dp.callback_query_handler(state=UsersStates.amount_photos)
 async def check_amount_photos(callback: types.CallbackQuery, state: FSMContext) -> None:
     if callback.data:
+        await bot.delete_message(callback.from_user.id, callback.message.message_id)
+        await callback.message.answer(text=f"Кол-во фото для отеля: {callback.data.split('photos_count_')[1]}")
         async with state.proxy() as data:
             data['amount_photos'] = callback.data
 
-            result = get_hotels(data)
-            await state.set_state(UsersStates.result)
+        await state.set_state(UsersStates.result)
+        await get_result(state=state)
 
 
-@dp.callback_query_handler(state=UsersStates.result)
-async def get_result(callback: types.CallbackQuery, state: FSMContext) -> None:
-    if callback.data:
-        async with state.proxy() as data:
-            pprint(get_hotels(data))
+@dp.message_handler(state=UsersStates.result)
+async def get_result(state: FSMContext) -> None:
+    async with state.proxy() as data:
+        result = get_hotels(data)
+        data['result'] = result
+        pprint(result)
+
+    await state.finish()
+
+

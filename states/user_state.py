@@ -31,8 +31,8 @@ class UsersStates(StatesGroup):
     price_min: int = State()
     price_max: int = State()
 
-    amount_hotels: int = State()
-    amount_photos: int = State()
+    amount_hotels: str = State()
+    amount_photos: str = State()
 
     max_distance: float = State()
 
