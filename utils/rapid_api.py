@@ -72,8 +72,8 @@ def get_hotels(data: Dict[str, Any]) -> List:
         "resultsSize": int(data['amount_hotels'].split('hotels_count_')[1]),
         "sort": "PRICE_LOW_TO_HIGH",
         "filters": {"price": {
-            "max": int(data.get("price_max", 200)),
-            "min": int(data.get("price_min", 10))
+            "max": int(data.get("price_max", 500)),
+            "min": int(data.get("price_min", 5))
         }}
     }
 

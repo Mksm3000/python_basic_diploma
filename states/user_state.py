@@ -37,3 +37,5 @@ class UsersStates(StatesGroup):
     max_distance: float = State()
 
     result = State()
+
+    page = State()
