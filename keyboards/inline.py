@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from typing import Dict, List
+from typing import Dict
+from pprint import pprint
 
 
 def cities_kb(cities_dict: Dict) -> InlineKeyboardMarkup:
@@ -36,11 +37,20 @@ def photos_count_kb() -> InlineKeyboardMarkup:
     return keyboard
 
 
-def inline_paginate(data: List) -> InlineKeyboardMarkup:
+def inline_delete() -> InlineKeyboardMarkup:
     """
-    data: Any ready-to-use keyboard InlineKeyboardMarkup or any iterable object with InlineKeyboardButton.
-    size: The number of rows of buttons on one page, excluding the navigation bar.
-    Return: A paginator object that, when called, returns a ready-made keyboard with pagination.
+    Returns inline keyboard for remove answer bot
     """
-    kb = types.InlineKeyboardMarkup()
-    paginator = Paginator(data=kb, size=5)
+    keyboard = InlineKeyboardMarkup(InlineKeyboardButton('❎ Удалить это сообщение', callback_data='delete'))
+    return keyboard
+
+
+def inline_delete_stop() -> InlineKeyboardMarkup:
+    """
+    Returns the inline keyboard to delete the bot response or stop the search
+    """
+    keyboard = InlineKeyboardMarkup()
+    b1 = InlineKeyboardButton('❎ Удалить это сообщение', callback_data='delete')
+    b2 = InlineKeyboardButton('❌ Закончить поиск', callback_data='stop')
+    keyboard.add(b1).add(b2)
+    return keyboard

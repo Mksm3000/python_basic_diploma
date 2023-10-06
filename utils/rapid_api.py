@@ -1,11 +1,20 @@
-import requests
 import json
-from typing import Optional, List, Tuple, Dict, Any
-from pprint import pprint
+import logging
+from typing import Optional, List, Dict, Any
+
+import requests
+
 from config_data.config import RAPID_API_KEY
+from pprint import pprint
 
 
 def api_query(method: str, url: str, params: Dict) -> Optional[requests.Response]:
+    """
+    Для выполнения запроса указываем:
+    - тип: "get" или "post";
+    - url-ссылку;
+    - параметры.
+    """
     headers = {
         "X-RapidAPI-Key": RAPID_API_KEY,
         "X-RapidAPI-Host": "hotels4.p.rapidapi.com",
@@ -13,38 +22,77 @@ def api_query(method: str, url: str, params: Dict) -> Optional[requests.Response
         "Content-Type": "application/json"
     }
 
-    if method == 'get':
-        response = requests.get(url=url, params=params, headers=headers, allow_redirects=True, timeout=15)
-    elif method == 'post':
-        response = requests.post(url=url, json=params, headers=headers, allow_redirects=True, timeout=15)
+    response = None
+    logging.info(f"Starting request to API (method: {method}; url: {url})")
+    try:
+        if method == 'get':
+            response = requests.get(url=url, params=params, headers=headers, allow_redirects=True, timeout=15)
+        elif method == 'post':
+            response = requests.post(url=url, json=params, headers=headers, allow_redirects=True, timeout=15)
 
-    return response
+        if response.status_code == requests.codes.ok:
+            logging.info("request OK")
+            return response
+        logging.error("Bad request")
+        return None
+    except Exception as ex:
+        logging.error("Bad request:", ex)
+        return None
 
 
 def get_city(city: str) -> Dict:
+    """
+    Получаем словарь по типу {'city': 'id'} из городов, подходящих по имени.
+    """
     url = "https://hotels4.p.rapidapi.com/locations/v3/search"
     querystring = {"q": city, "locale": "en_US", "langid": "1033", "siteid": "300000001"}
 
     response = api_query(method='get', url=url, params=querystring)
-    resp_dict = json.loads(response.text)
 
     city_dict = {}
 
-    for element in resp_dict['sr']:
-        if element.get('gaiaId'):
-            city_id = element['gaiaId']
-            city_name = element['regionNames']['fullName']
-            city_dict[city_name] = city_id
+    try:
+        if response:
+            resp_dict = json.loads(response.text)
+            for element in resp_dict['sr']:
+                if element.get('gaiaId'):
+                    city_id = element['gaiaId']
+                    city_name = element['regionNames']['fullName']
+                    city_dict[city_name] = city_id
+            if len(city_dict) != 0:
+                city_dict["❎вернуться в главное меню❎"] = "main_menu"
+    except Exception as ex:
+        logging.error("Ошибка при создании словаря 'city_dict'", ex)
+    finally:
+        return city_dict
 
-    return city_dict
 
-
-def price_sort(hotel: Dict):
-    return hotel["price"].split("$")[1]
+def price_sort(temp: Dict):
+    """
+    Сортируем отели по цене за 1 ночь.
+    """
+    price_ = temp["price"]["displayMessages"][0]["lineItems"][0]["price"]["formatted"].split("$")[1]
+    price = price_.replace(",", "")
+    return int(price)
 
 
 def get_hotels(data: Dict[str, Any]) -> List:
-    # print(data)
+    """
+    Получаем список словарей для найденых отелей.
+    """
+    # Types of sort:
+    # - PRICE_RELEVANT (Price + our picks)
+    # - REVIEW (Guest rating)
+    # - DISTANCE (Distance from downtown)
+    # - PRICE_LOW_TO_HIGH (Price)
+    # - PROPERTY_CLASS (Star rating)
+    # - RECOMMENDED (Recommended)
+
+    sort_of_data = "PRICE_LOW_TO_HIGH"
+
+    if data['command'] == '/best_deal':
+        sort_of_data = "DISTANCE"
+
     url = "https://hotels4.p.rapidapi.com/properties/v2/list"
     payload = {
         "currency": "USD",
@@ -65,40 +113,78 @@ def get_hotels(data: Dict[str, Any]) -> List:
         "rooms": [
             {
                 "adults": 2,
-                "children": []
+                "children": [
+                    ]
             }
         ],
         "resultsStartingIndex": 0,
-        "resultsSize": int(data['amount_hotels'].split('hotels_count_')[1]),
-        "sort": "PRICE_LOW_TO_HIGH",
+        "resultsSize": 200,
+        "sort": sort_of_data,
         "filters": {"price": {
-            "max": int(data.get("price_max", 500)),
-            "min": int(data.get("price_min", 5))
+            "max": int(data.get("price_max", 1000)),
+            "min": int(data.get("price_min", 0))
         }}
     }
 
     response = api_query(method='post', url=url, params=payload)
-    response_dict = json.loads(response.text)
-    # print(response_dict)
-    hotels_list = list()
 
-    for element in response_dict['data']['propertySearch']['properties']:
-        if element.get("id") and element.get("name"):
-            hotel_temp = {"name": element.get("name"),
-                          "id": element.get("id"),
-                          "price": element["price"]["displayMessages"][0]["lineItems"][0]["price"].get("formatted"),
-                          "price_total": element["price"]["displayMessages"][1]["lineItems"][0].get("value").split(' ')[0],
-                          "score": element["reviews"].get("score"),
-                          "total": element["reviews"].get("total"),
-                          "image": get_hotel_photos(element["id"], data["amount_photos"])}
-            hotels_list.append(hotel_temp)
+    # with open('response_data.json', 'wb') as f:
+    #     f.write(response.content)
 
-    hotels_list.sort(key=price_sort)
-    # pprint(hotels_list)
-    return hotels_list
+    sorted_hotels = list()
+    hotels_finish_list = list()
+
+    try:
+        if response:
+            response_dict = json.loads(response.text)
+            pprint(response_dict)
+            amount = int(data['amount_hotels'].split('hotels_count_')[1])
+
+            if data['command'] in ['/low_price', '/best_deal']:
+                """ Сортировка цены по возростанию """
+                sorted_hotels = sorted(response_dict['data']['propertySearch']['properties'], key=price_sort)
+
+            elif data['command'] == '/high_price':
+                """ Сортировка цены по убыванию """
+                sorted_hotels = sorted(response_dict['data']['propertySearch']['properties'], key=price_sort, reverse=True)
+
+            for element in sorted_hotels:
+                print(element.get('name'))
+                if element.get("id") and element.get("name") and len(hotels_finish_list) < amount:
+                    hotel_temp = {"name": element.get("name"),
+                                  "hotel_id": element.get("id"),
+                                  "destination": data['city_name'],
+                                  "dest_id": data['city_id'],
+                                  "dest_coord": element['mapMarker']['latLong'],
+                                  "price_min": int(data.get("price_min", 0)),
+                                  "price_max": int(data.get("price_max", 1000)),
+                                  "price": element["price"]["displayMessages"][0]["lineItems"][0]["price"].get("formatted"),
+                                  "price_total": element["price"]["displayMessages"][1]["lineItems"][0].get("value").split(' ')[0],
+                                  "score": element["reviews"].get("score"),
+                                  "total": element["reviews"].get("total"),
+                                  "image": get_hotel_photos(element["id"], data["amount_photos"]),
+                                  "checkIn": data['date_in'].strftime('%Y-%m-%d'),
+                                  "checkOut": data['date_out'].strftime('%Y-%m-%d'),
+                                  "sort_by": sort_of_data
+                                  }
+                    if data.get('max_km_distance'):
+                        user_km_distance = float(data.get('max_km_distance'))
+                        mile_distance = element["destinationInfo"]["distanceFromDestination"].get("value")
+                        data_km_distance = float(mile_distance * 1.60934)
+
+                        if user_km_distance >= data_km_distance:
+                            hotel_temp["distance"] = element["destinationInfo"]["distanceFromDestination"].get("value")
+                    hotels_finish_list.append(hotel_temp)
+    except Exception as ex:
+        logging.error(msg=f"Ошибка при создании словаря 'hotels_finish_list': {ex}")
+    finally:
+        return hotels_finish_list
 
 
 def get_hotel_photos(hotel_id: str, amount_photo: str) -> List:
+    """
+    Получаем список url-ссылок на изображения отеля в кол-ве, указанном пользователем.
+    """
     image_num = amount_photo.split('photos_count_')[1]
     url = "https://hotels4.p.rapidapi.com/properties/v2/detail"
     payload = {
@@ -110,14 +196,19 @@ def get_hotel_photos(hotel_id: str, amount_photo: str) -> List:
     }
 
     response = api_query(method='post', url=url, params=payload)
-    response_dict = json.loads(response.text)
-    # print(response_dict)
+
     image_list = list()
 
-    for element in response_dict["data"]["propertyInfo"]["propertyGallery"]["images"]:
-        if element["image"].get("url") and (len(image_list) < int(image_num)):
-            image_link = element["image"]["url"].split('?impolicy')[0]
-            image_list.append(image_link)
+    try:
+        if response:
+            response_dict = json.loads(response.text)
 
-    # pprint(image_list)
-    return image_list
+            for element in response_dict["data"]["propertyInfo"]["propertyGallery"]["images"]:
+                if element["image"].get("url") and (len(image_list) < int(image_num)):
+                    image_link = element["image"]["url"].split('?impolicy')[0]
+                    image_list.append(image_link)
+
+    except Exception as ex:
+        logging.error(msg=f"Ошибка при создании списка изображений 'image_list': {ex}")
+    finally:
+        return image_list

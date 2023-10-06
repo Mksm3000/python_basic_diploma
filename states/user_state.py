@@ -1,40 +1,39 @@
 from aiogram.dispatcher.filters.state import StatesGroup, State
-import datetime
 
 
 class UsersStates(StatesGroup):
     """
     Класс реализует состояние пользователя внутри сценария.
-    Атрибуты заполняются во время опроса пользователя. Очищаются при каждой новой команде.
+    Атрибуты заполняются во время опроса пользователя.
+    Очищаются при каждой новой команде.
 
     Attributes:
         city_name (str): город, в котором ищем отели.
         city_id (str): id города, в котором ищем отели.
-        # cities (Dict): подходящие по названию города, из которых пользователь выбирает нужный ему.
-        amount_hotels (int): количество отелей.
-        start_date (datetime.date): дата заезда в отель.
-        amount_nights (int): количество ночей.
-        amount_adults (int): количество взрослых.
-        min_price (int): минимальная цена за ночь.
-        max_price (int): максимальная цена за ночь.
-        max_distance (float): максимальная дистанция до центра города.
-        current_page (int): текущая страница пагинации.
-        result (list): результат поиска отелей.
+        date_in: (datetime.date): дата заезда в отель.
+        date_out: (datetime.date): дата выезда из отеля.
+        price_min (int): минимальная цена за ночь.
+        price_max (int): максимальная цена за ночь.
+        amount_hotels: (str): кол-во отелей (от 1 до 10)
+        amount_photos: (str): кол-во фото при показе инфо отеля (от 1 до 5)
+        max_km_distance (float): максимальная дистанция до центра города.
+        result (str): результат поиска отелей.
+        page (str): текущая страница пагинации.
     """
 
-    city_name: str = State()
-    city_id: str = State()
+    city_name = State()
+    city_id = State()
 
-    date_in: datetime.date = State()
-    date_out: datetime.date = State()
+    date_in = State()
+    date_out = State()
 
-    price_min: int = State()
-    price_max: int = State()
+    price_min = State()
+    price_max = State()
 
-    amount_hotels: str = State()
-    amount_photos: str = State()
+    amount_hotels = State()
+    amount_photos = State()
 
-    max_distance: float = State()
+    max_km_distance = State()
 
     result = State()
 
