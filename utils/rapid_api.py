@@ -1,11 +1,11 @@
 import json
 import logging
+from pprint import pprint
 from typing import Optional, List, Dict, Any
 
 import requests
 
 from config_data.config import RAPID_API_KEY
-from pprint import pprint
 
 
 def api_query(method: str, url: str, params: Dict) -> Optional[requests.Response]:
@@ -33,7 +33,7 @@ def api_query(method: str, url: str, params: Dict) -> Optional[requests.Response
         if response.status_code == requests.codes.ok:
             logging.info("request OK")
             return response
-        logging.error("Bad request")
+        logging.error(f"Запрос для функции 'api_query' вернулся с кодом '{response.status_code}'")
         return None
     except Exception as ex:
         logging.error("Bad request:", ex)
@@ -80,65 +80,63 @@ def get_hotels(data: Dict[str, Any]) -> List:
     """
     Получаем список словарей для найденых отелей.
     """
-    # Types of sort:
-    # - PRICE_RELEVANT (Price + our picks)
-    # - REVIEW (Guest rating)
-    # - DISTANCE (Distance from downtown)
-    # - PRICE_LOW_TO_HIGH (Price)
-    # - PROPERTY_CLASS (Star rating)
-    # - RECOMMENDED (Recommended)
-
     sort_of_data = "PRICE_LOW_TO_HIGH"
 
     if data['command'] == '/best_deal':
         sort_of_data = "DISTANCE"
 
     url = "https://hotels4.p.rapidapi.com/properties/v2/list"
+
+    destination = data['city_id']
+    day_in = int(data['date_in'].strftime('%d'))
+    month_in = int(data['date_in'].strftime('%m'))
+    year_in = int(data['date_in'].strftime('%Y'))
+    day_out = int(data['date_out'].strftime('%d'))
+    month_out = int(data['date_out'].strftime('%m'))
+    year_out = int(data['date_out'].strftime('%Y'))
+    price_max = int(data.get("price_max", 1000))
+    price_min = int(data.get("price_min", 10))
+
     payload = {
         "currency": "USD",
         "eapid": 1,
         "locale": "en_US",
         "siteId": 300000001,
-        "destination": {"regionId": data['city_id']},
+        "destination": {"regionId": destination},
         "checkInDate": {
-            "day": int(data['date_in'].strftime('%d')),
-            "month": int(data['date_in'].strftime('%m')),
-            "year": int(data['date_in'].strftime('%Y'))
+            "day": day_in,
+            "month": month_in,
+            "year": year_in
         },
         "checkOutDate": {
-            "day": int(data['date_out'].strftime('%d')),
-            "month": int(data['date_out'].strftime('%m')),
-            "year": int(data['date_out'].strftime('%Y'))
+            "day": day_out,
+            "month": month_out,
+            "year": year_out
         },
         "rooms": [
             {
                 "adults": 2,
-                "children": [
-                    ]
+                "children": []
             }
         ],
         "resultsStartingIndex": 0,
         "resultsSize": 200,
         "sort": sort_of_data,
         "filters": {"price": {
-            "max": int(data.get("price_max", 1000)),
-            "min": int(data.get("price_min", 0))
+            "max": price_max,
+            "min": price_min
         }}
     }
 
     response = api_query(method='post', url=url, params=payload)
 
-    # with open('response_data.json', 'wb') as f:
-    #     f.write(response.content)
-
     sorted_hotels = list()
     hotels_finish_list = list()
+    amount = int(data['amount_hotels'].split('hotels_count_')[1])
 
     try:
         if response:
             response_dict = json.loads(response.text)
-            pprint(response_dict)
-            amount = int(data['amount_hotels'].split('hotels_count_')[1])
 
             if data['command'] in ['/low_price', '/best_deal']:
                 """ Сортировка цены по возростанию """
@@ -149,15 +147,45 @@ def get_hotels(data: Dict[str, Any]) -> List:
                 sorted_hotels = sorted(response_dict['data']['propertySearch']['properties'], key=price_sort, reverse=True)
 
             for element in sorted_hotels:
-                print(element.get('name'))
-                if element.get("id") and element.get("name") and len(hotels_finish_list) < amount:
+                if (data['command'] == '/best_deal'
+                        and data.get('max_km_distance')
+                        and element.get("id")
+                        and element.get("name")
+                        and len(hotels_finish_list) < amount):
+                    user_km_distance = float(data.get('max_km_distance'))
+                    mile_distance = element["destinationInfo"]["distanceFromDestination"].get("value")
+                    data_km_distance = float(mile_distance * 1.60934)
+                    if user_km_distance >= data_km_distance:
+                        hotel_temp = {"name": element.get("name"),
+                                      "hotel_id": element.get("id"),
+                                      "destination": data['city_name'],
+                                      "dest_id": data['city_id'],
+                                      "dest_coord": element['mapMarker']['latLong'],
+                                      "distance": element["destinationInfo"]["distanceFromDestination"].get("value"),
+                                      "price_min": price_min,
+                                      "price_max": price_max,
+                                      "price": element["price"]["displayMessages"][0]["lineItems"][0]["price"].get("formatted"),
+                                      "price_total": element["price"]["displayMessages"][1]["lineItems"][0].get("value").split(' ')[0],
+                                      "score": element["reviews"].get("score"),
+                                      "total": element["reviews"].get("total"),
+                                      "image": get_hotel_photos(element["id"], data["amount_photos"]),
+                                      "checkIn": data['date_in'].strftime('%Y-%m-%d'),
+                                      "checkOut": data['date_out'].strftime('%Y-%m-%d'),
+                                      "sort_by": sort_of_data
+                                      }
+                        hotels_finish_list.append(hotel_temp)
+
+                elif (data['command'] in ['/low_price', '/high_price']
+                      and element.get("id")
+                      and element.get("name")
+                      and len(hotels_finish_list) < amount):
                     hotel_temp = {"name": element.get("name"),
                                   "hotel_id": element.get("id"),
                                   "destination": data['city_name'],
                                   "dest_id": data['city_id'],
                                   "dest_coord": element['mapMarker']['latLong'],
-                                  "price_min": int(data.get("price_min", 0)),
-                                  "price_max": int(data.get("price_max", 1000)),
+                                  "price_min": price_min,
+                                  "price_max": price_max,
                                   "price": element["price"]["displayMessages"][0]["lineItems"][0]["price"].get("formatted"),
                                   "price_total": element["price"]["displayMessages"][1]["lineItems"][0].get("value").split(' ')[0],
                                   "score": element["reviews"].get("score"),
@@ -167,16 +195,11 @@ def get_hotels(data: Dict[str, Any]) -> List:
                                   "checkOut": data['date_out'].strftime('%Y-%m-%d'),
                                   "sort_by": sort_of_data
                                   }
-                    if data.get('max_km_distance'):
-                        user_km_distance = float(data.get('max_km_distance'))
-                        mile_distance = element["destinationInfo"]["distanceFromDestination"].get("value")
-                        data_km_distance = float(mile_distance * 1.60934)
-
-                        if user_km_distance >= data_km_distance:
-                            hotel_temp["distance"] = element["destinationInfo"]["distanceFromDestination"].get("value")
                     hotels_finish_list.append(hotel_temp)
+
     except Exception as ex:
         logging.error(msg=f"Ошибка при создании словаря 'hotels_finish_list': {ex}")
+
     finally:
         return hotels_finish_list
 

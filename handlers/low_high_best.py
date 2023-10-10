@@ -1,4 +1,6 @@
+import logging
 from datetime import date, timedelta
+from pprint import pprint
 
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -9,7 +11,6 @@ from keyboards.inline import cities_kb, hotels_count_kb, photos_count_kb
 from loader import dp, bot
 from states.user_state import UsersStates
 from utils.rapid_api import get_city, get_hotels
-from pprint import pprint
 
 
 @dp.message_handler(commands=['low_price', 'high_price', 'best_deal'])
@@ -322,8 +323,13 @@ async def show_page(chat_id: str, page_block: dict, page_num: int, pages_total: 
 
     await state.set_state(state=UsersStates.page)
 
-    await bot.send_media_group(chat_id=chat_id,
-                               media=[types.InputMediaPhoto(i_image) for i_image in page_block['image']])
+    if len(page_block['image']) != 0:
+        await bot.send_media_group(chat_id=chat_id,
+                                   media=[types.InputMediaPhoto(i_image) for i_image in page_block['image']])
+    else:
+        with open('handlers\\loading_error.jpg', 'rb') as file:
+            await bot.send_photo(chat_id=chat_id,
+                                 photo=file)
 
     if page_block.get('distance'):
         await bot.send_message(chat_id=chat_id,
