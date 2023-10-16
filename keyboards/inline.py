@@ -1,5 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from typing import Dict
+from typing import Dict, List
 from pprint import pprint
 
 
@@ -37,20 +37,19 @@ def photos_count_kb() -> InlineKeyboardMarkup:
     return keyboard
 
 
-def inline_delete() -> InlineKeyboardMarkup:
+def hisory_kb(line: List) -> InlineKeyboardMarkup:
     """
-    Returns inline keyboard for remove answer bot
+    Клавиатура с кнопками — вывод имеющихся результатов, из которых пользователь выбирает нужный ему.
     """
-    keyboard = InlineKeyboardMarkup(InlineKeyboardButton('❎ Удалить это сообщение', callback_data='delete'))
-    return keyboard
 
-
-def inline_delete_stop() -> InlineKeyboardMarkup:
-    """
-    Returns the inline keyboard to delete the bot response or stop the search
-    """
     keyboard = InlineKeyboardMarkup()
-    b1 = InlineKeyboardButton('❎ Удалить это сообщение', callback_data='delete')
-    b2 = InlineKeyboardButton('❌ Закончить поиск', callback_data='stop')
-    keyboard.add(b1).add(b2)
+    for item in line:
+        row = item[0]
+        date_time = item[1]
+        command = item[2].split('/')[1]
+        location = item[3]
+        keyboard.add(InlineKeyboardButton(text=f"{date_time} / {command} / {location}", callback_data=f"row_{row}"))
+
+    keyboard.add(InlineKeyboardButton(text=f'⛔️завершить просмотр⛔️', callback_data='cancel_show'))
+
     return keyboard

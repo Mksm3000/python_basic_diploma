@@ -3,33 +3,46 @@ import sqlite3 as sq
 
 async def create_database():
     """
-    The first initialization of the database
+    Создание БД, если её ещё не существует
     """
     with sq.connect('user_requests.db') as db:
-        db.execute('CREATE TABLE IF NOT EXISTS requests('
-                   'user_id INTEGER PRIMARY KEY, '
-                   'date TEXT, '
-                   'command TEXT, '
-                   'hotels_found BLOB)')
+        db.execute(""" CREATE TABLE IF NOT EXISTS requests(
+                    user_id INTEGER,
+                    date TEXT,
+                    command TEXT,
+                    destination TEXT,
+                    hotels_found TEXT)
+                    """)
         db.commit()
 
 
-async def add_row(user_id, time, command, matches):
+async def add_row(user_id, date, command, destination, matches):
     """
-    Adds a new row into the database
+    Добавление новой строки в БД
     """
     with sq.connect('user_requests.db') as db:
         cursor = db.cursor()
-        cursor.execute('INSERT INTO requests VALUES(?, ?, ?, ?)', (user_id, time, command, matches))
+        cursor.execute('INSERT INTO requests VALUES(?, ?, ?, ?, ?)', (user_id, date, command, destination, matches))
         db.commit()
 
 
-async def show_tables(message):
+async def show_tables(user_id):
     """
-    Obtains the last 5 successful search results from the database.
+    Получение последних 5 запросов из БД для юзера с 'user_id'
     """
     with sq.connect('user_requests.db') as db:
         cursor = db.cursor()
-        result = cursor.execute('SELECT * FROM requests WHERE user_id == ? ORDER BY date DESC LIMIT 5',
-                                (message.from_user.id,)).fetchall()
+        result = cursor.execute('SELECT rowid, date, command, destination FROM requests WHERE user_id == ? ORDER BY date DESC LIMIT 5',
+                                (user_id,)).fetchall()
+    return result
+
+
+async def show_hotels_found(row_num):
+    """
+    Получение информации по отелям для указанного 'row_id'
+    """
+    with sq.connect('user_requests.db') as db:
+        cursor = db.cursor()
+        result = cursor.execute('SELECT command, hotels_found FROM requests WHERE rowid == ?',
+                                (row_num,)).fetchone()
     return result

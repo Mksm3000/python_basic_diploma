@@ -1,5 +1,5 @@
 import logging
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
 from pprint import pprint
 
 from aiogram import types
@@ -7,10 +7,12 @@ from aiogram.dispatcher import FSMContext
 from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 
 from config_data.config import DEFAULT_COMMANDS
+from data.database import add_row
 from keyboards.inline import cities_kb, hotels_count_kb, photos_count_kb
 from loader import dp, bot
 from states.user_state import UsersStates
 from utils.rapid_api import get_city, get_hotels
+from json import dumps
 
 
 @dp.message_handler(commands=['low_price', 'high_price', 'best_deal'])
@@ -20,6 +22,7 @@ async def low_high_best(message: types.Message, state: FSMContext) -> None:
     Устанавливаем состояние 'city_name'.
     """
     async with state.proxy() as data:
+        data['user_uniq_id'] = message.from_user.id
         data['command'] = message.text
 
     await message.answer(text='Введите название города')
@@ -156,6 +159,7 @@ async def check_amount_hotels(callback: types.CallbackQuery, state: FSMContext) 
     await bot.delete_message(chat_id=callback.from_user.id,
                              message_id=callback.message.message_id)
     await callback.message.answer(text=f"Кол-во отелей: {callback.data.split('hotels_count_')[1]}")
+
     async with state.proxy() as data:
         data['amount_hotels'] = callback.data
         if data['command'] == '/best_deal':
@@ -173,7 +177,9 @@ async def get_max_distance(message: types.Message, state: FSMContext) -> None:
     Получаем максимальное растстояние от центра, км.
     Указываем минимальную цену за ночь. Устанавливаем состояние 'price_min'.
     """
-    await message.delete()
+
+    await bot.delete_message(chat_id=message.from_user.id,
+                             message_id=message.message_id)
     await message.answer(text=f"Макс.расстояние от центра: {message.text} км")
 
     async with state.proxy() as data:
@@ -195,8 +201,11 @@ async def get_min_price(message: types.Message, state: FSMContext) -> None:
     Получаем минимальную цену за 1 ночь.
     Устанавливаем состояние 'price_max'.
     """
-    await message.delete()
+
+    await bot.delete_message(chat_id=message.from_user.id,
+                             message_id=message.message_id)
     await message.answer(text=f"Мин.цена за 1 ночь:${message.text}")
+
     async with state.proxy() as data:
         if message.text.isdigit() and int(message.text) > 0:
             data['price_min'] = message.text
@@ -218,6 +227,7 @@ async def get_max_price(message: types.Message, state: FSMContext) -> None:
     """
     await bot.delete_message(message.from_user.id, message.message_id)
     await message.answer(text=f"Макс.цена за 1 ночь:${message.text}")
+
     async with state.proxy() as data:
         if message.text.isdigit() and int(message.text) > 0:
             data['price_max'] = message.text
@@ -255,12 +265,25 @@ async def get_result(message: types.Message, state: FSMContext) -> None:
     Устанавливаем состояние 'page'.
     """
     async with state.proxy() as data:
-        pprint(data.as_dict())
+        # pprint(data.as_dict())
         result = get_hotels(data)
 
         if len(result) != 0:
             data['result'] = result
-            pprint(result)
+            # pprint(result)
+
+            # Передача данных результата поиска в БД
+            try:
+                user_id = data.get('user_uniq_id')
+                time = datetime.isoformat(datetime.today(), sep=' ', timespec='seconds')
+                command = data.get('command')
+                destination = data.get('city_name')
+                matches = dumps(result)
+                await add_row(user_id, time, command, destination, matches)
+            except Exception as ex:
+                logging.error(msg=f"Ошибка при передаче данных результата поиска в БД: {ex}")
+            finally:
+                pass
 
             pages_list = [result[i] for i in range(len(result))]
             current_page_num = 0
@@ -291,34 +314,14 @@ async def show_page(chat_id: str, page_block: dict, page_num: int, pages_total: 
     Устанавливаем состояние 'page'.
     """
     page_keyboard = types.InlineKeyboardMarkup(row_width=3)
+    url_data = f'https://www.hotels.com/h{page_block["hotel_id"]}.Hotel-Information'
 
     if page_num > 0:
         page_keyboard.insert(types.InlineKeyboardButton(text="⬅️", callback_data='page_back'))
-
-    url_data = (f"https://www.hotels.com/Hotel-Search?adults=2"
-                f"&d1={page_block['checkIn']}"
-                f"&d2={page_block['checkOut']}"
-                f"&destination={page_block['destination']}"
-                f"&endDate={page_block['checkOut']}"
-                f"&flexibility=0_DAY"
-                f"&latLong={page_block['dest_coord']['latitude']}%2C{page_block['dest_coord']['longitude']}"
-                f"&price={page_block['price_min']}"
-                f"&price={page_block['price_max']}"
-                f"&regionId={page_block['dest_id']}"
-                f"&rooms=1"
-                f"&semdtl="
-                f"&sort={page_block['sort_by']}"
-                f"&startDate={page_block['checkIn']}"
-                f"&theme="
-                f"&useRewards=false"
-                f"&userIntent=")
-
     page_keyboard.insert(types.InlineKeyboardButton(text=f'отель №{page_num + 1} из {pages_total}',
                                                     url=url_data))
-
     if page_num < pages_total - 1:
         page_keyboard.insert(types.InlineKeyboardButton(text="➡️", callback_data='page_next'))
-
     page_keyboard.add(types.InlineKeyboardButton(text=f'⛔️завершить просмотр⛔️', callback_data='cancel_show'))
 
     await state.set_state(state=UsersStates.page)

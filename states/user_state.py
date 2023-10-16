@@ -19,6 +19,7 @@ class UsersStates(StatesGroup):
         max_km_distance (float): максимальная дистанция до центра города.
         result (str): результат поиска отелей.
         page (str): текущая страница пагинации.
+        history (str): просмотр выбранного результата поиска
     """
 
     city_name = State()
@@ -38,3 +39,5 @@ class UsersStates(StatesGroup):
     result = State()
 
     page = State()
+
+    history = State()
