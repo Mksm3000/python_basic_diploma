@@ -1,1 +1,1 @@
-from . import misc
+from . import rapid_api

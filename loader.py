@@ -1,6 +1,10 @@
-from telebot import TeleBot
-from telebot.storage import StateMemoryStorage
-from config_data import config
+from aiogram import Bot, Dispatcher
+from config_data.config import BOT_TOKEN
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-storage = StateMemoryStorage()
-bot = TeleBot(token=config.BOT_TOKEN, state_storage=storage)
+
+storage = MemoryStorage()
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot=bot, storage=storage)
+
+
