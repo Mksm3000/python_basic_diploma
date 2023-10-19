@@ -29,6 +29,7 @@ async def add_row(user_id, date, command, destination, matches):
 async def show_tables(user_id):
     """
     Получение последних 5 запросов из БД для юзера с 'user_id'
+    return: List
     """
     with sq.connect('user_requests.db') as db:
         cursor = db.cursor()
@@ -40,6 +41,7 @@ async def show_tables(user_id):
 async def show_hotels_found(row_num):
     """
     Получение информации по отелям для указанного 'row_id'
+    return: Tuple
     """
     with sq.connect('user_requests.db') as db:
         cursor = db.cursor()

@@ -5,7 +5,8 @@ from pprint import pprint
 
 def cities_kb(cities_dict: Dict) -> InlineKeyboardMarkup:
     """
-    Клавиатура с кнопками - выбор подходящего по названию города, из которых пользователь выбирает нужный ему.
+    Клавиатура с кнопками — выбор подходящего по названию города, из которых пользователь выбирает нужный ему
+    return: InlineKeyboardMarkup()
     """
 
     keyboard = InlineKeyboardMarkup()
@@ -17,7 +18,8 @@ def cities_kb(cities_dict: Dict) -> InlineKeyboardMarkup:
 
 def hotels_count_kb() -> InlineKeyboardMarkup:
     """
-    Клавиатура с кнопками - выбор количества отелей в ответе, пользователь выбирает нужное число.
+    Клавиатура с кнопками - выбор количества отелей в ответе, пользователь выбирает нужное число
+    return: InlineKeyboardMarkup()
     """
     keyboard = InlineKeyboardMarkup(row_width=5)
     for i in range(10):
@@ -28,7 +30,8 @@ def hotels_count_kb() -> InlineKeyboardMarkup:
 
 def photos_count_kb() -> InlineKeyboardMarkup:
     """
-    Клавиатура с кнопками - выбор количества фотографий отеля в ответе, пользователь выбирает нужное число.
+    Клавиатура с кнопками - выбор количества фотографий отеля в ответе, пользователь выбирает нужное число
+    return: InlineKeyboardMarkup()
     """
     keyboard = InlineKeyboardMarkup(row_width=5)
     for i in range(5):
@@ -39,9 +42,9 @@ def photos_count_kb() -> InlineKeyboardMarkup:
 
 def hisory_kb(line: List) -> InlineKeyboardMarkup:
     """
-    Клавиатура с кнопками — вывод имеющихся результатов, из которых пользователь выбирает нужный ему.
+    Клавиатура с кнопками — вывод имеющихся результатов, из которых пользователь выбирает нужный ему
+    return: InlineKeyboardMarkup()
     """
-
     keyboard = InlineKeyboardMarkup()
     for item in line:
         row = item[0]

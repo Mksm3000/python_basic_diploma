@@ -14,5 +14,3 @@ async def start_help(message: types.Message) -> None:
         await message.answer(text=f'Привет, {message.from_user.first_name}!\nБот запущен! Выберите нужную команду:')
     await message.answer(text=DEFAULT_COMMANDS, parse_mode='HTML')
     await message.delete()
-
-

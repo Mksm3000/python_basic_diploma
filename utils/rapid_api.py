@@ -14,6 +14,7 @@ def api_query(method: str, url: str, params: Dict) -> Optional[requests.Response
     - тип: "get" или "post";
     - url-ссылку;
     - параметры.
+    return: requests.Response OR None if failed
     """
     headers = {
         "X-RapidAPI-Key": RAPID_API_KEY,
@@ -42,7 +43,8 @@ def api_query(method: str, url: str, params: Dict) -> Optional[requests.Response
 
 def get_city(city: str) -> Dict:
     """
-    Получаем словарь по типу {'city': 'id'} из городов, подходящих по имени.
+    Получаем словарь по типу {'city': 'id'} из городов, подходящих по имени
+    return: Dict
     """
     url = "https://hotels4.p.rapidapi.com/locations/v3/search"
     querystring = {"q": city, "locale": "en_US", "langid": "1033", "siteid": "300000001"}
@@ -69,7 +71,8 @@ def get_city(city: str) -> Dict:
 
 def price_sort(temp: Dict):
     """
-    Сортируем отели по цене за 1 ночь.
+    Сортируем отели по цене за 1 ночь
+    return: Int
     """
     price_ = temp["price"]["displayMessages"][0]["lineItems"][0]["price"]["formatted"].split("$")[1]
     price = price_.replace(",", "")
@@ -78,7 +81,8 @@ def price_sort(temp: Dict):
 
 def get_hotels(data: Dict[str, Any]) -> List:
     """
-    Получаем список словарей для найденых отелей.
+    Получаем список словарей для найденых отелей
+    return: List
     """
     sort_of_data = "PRICE_LOW_TO_HIGH"
 
@@ -206,7 +210,8 @@ def get_hotels(data: Dict[str, Any]) -> List:
 
 def get_hotel_photos(hotel_id: str, amount_photo: str) -> List:
     """
-    Получаем список url-ссылок на изображения отеля в кол-ве, указанном пользователем.
+    Получаем список url-ссылок на изображения отеля в кол-ве, указанном пользователем
+    return: List.
     """
     image_num = amount_photo.split('photos_count_')[1]
     url = "https://hotels4.p.rapidapi.com/properties/v2/detail"

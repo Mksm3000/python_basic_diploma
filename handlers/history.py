@@ -37,7 +37,8 @@ async def history_list(message: types.Message, state: FSMContext) -> None:
 @dp.callback_query_handler(lambda callback: callback.data.startswith("row_"), state=UsersStates.history)
 async def callback_history_row(callback: types.CallbackQuery, state: FSMContext) -> None:
     """
-    Nista
+    Получаем номер 'row_id'.
+    Выводим на экран сообщение с информацией по отелям, сохранённых в БД.
     """
     row_num = callback.data.split("row_")[1]
     temp_tuple = await show_hotels_found(row_num)
@@ -76,3 +77,14 @@ async def callback_history_row(callback: types.CallbackQuery, state: FSMContext)
                                            f"Мы уже работаем над её устранением.\n"
                                            f"Пожалуйста, выберите ниже нужную вам команду. {DEFAULT_COMMANDS}")
         await state.finish()
+
+
+@dp.message_handler(state=UsersStates.history)
+async def history_wrong(message: types.Message, state: FSMContext) -> None:
+    """
+    Если пользователь ввёл неизвестную команду или некорректно вышел из режима просмотра.
+    """
+    await message.answer(text=f'‼️Сначала нужно нажать кнопку ⛔️завершить просмотр️⛔️\n'
+                              f'Затем необходимо выбрать действие из списка\n{DEFAULT_COMMANDS}',
+                         parse_mode='HTML')
+    await state.finish()

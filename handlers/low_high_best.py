@@ -156,8 +156,7 @@ async def check_amount_hotels(callback: types.CallbackQuery, state: FSMContext) 
     Устанавливаем состояние 'max_km_distance'.
     В остальных случаях указываем кол-во фото для отеля. Устанавливаем состояние 'amount_photos'.
     """
-    await bot.delete_message(chat_id=callback.from_user.id,
-                             message_id=callback.message.message_id)
+    await callback.message.delete()
     await callback.message.answer(text=f"Кол-во отелей: {callback.data.split('hotels_count_')[1]}")
 
     async with state.proxy() as data:
@@ -177,19 +176,16 @@ async def get_max_distance(message: types.Message, state: FSMContext) -> None:
     Получаем максимальное растстояние от центра, км.
     Указываем минимальную цену за ночь. Устанавливаем состояние 'price_min'.
     """
-
-    await bot.delete_message(chat_id=message.from_user.id,
-                             message_id=message.message_id)
-    await message.answer(text=f"Макс.расстояние от центра: {message.text} км")
-
     async with state.proxy() as data:
         if message.text.isdigit() and float(message.text) > 0:
+            await message.delete()
+            await message.answer(text=f"Макс.расстояние от центра: {message.text} км")
             data['max_km_distance'] = message.text
             await message.answer(text='Укажите мин.цену в $ за 1 ночь (например, 10)')
             await state.set_state(state=UsersStates.price_min)
 
         else:
-            await bot.delete_message(message.from_user.id, message.message_id)
+            await message.delete()
             await message.answer(f'⚠️Расстояние - это целое положительное число.\n'
                                  f'Укажите еще раз расстояние до центра города, км (например, 1.5)')
             await state.set_state(state=UsersStates.max_km_distance)
@@ -201,19 +197,16 @@ async def get_min_price(message: types.Message, state: FSMContext) -> None:
     Получаем минимальную цену за 1 ночь.
     Устанавливаем состояние 'price_max'.
     """
-
-    await bot.delete_message(chat_id=message.from_user.id,
-                             message_id=message.message_id)
-    await message.answer(text=f"Мин.цена за 1 ночь:${message.text}")
-
     async with state.proxy() as data:
         if message.text.isdigit() and int(message.text) > 0:
+            await message.delete()
+            await message.answer(text=f"Мин.цена за 1 ночь:${message.text}")
             data['price_min'] = message.text
             await message.answer(text='Укажите макс.цену в $ за 1 ночь (например, 500)')
             await state.set_state(state=UsersStates.price_max)
 
         else:
-            await bot.delete_message(message.from_user.id, message.message_id)
+            await message.delete()
             await message.answer(f'⚠️Цена - это целое положительное число.\n'
                                  f'Укажите еще раз мин.цену в $ за 1 ночь (например, 10)')
             await state.set_state(state=UsersStates.price_min)
@@ -225,18 +218,17 @@ async def get_max_price(message: types.Message, state: FSMContext) -> None:
     Получаем максимальную цену за 1 ночь.
     Указываем кол-во фото для отеля. Устанавливаем состояние 'amount_photos'.
     """
-    await bot.delete_message(message.from_user.id, message.message_id)
-    await message.answer(text=f"Макс.цена за 1 ночь:${message.text}")
-
     async with state.proxy() as data:
         if message.text.isdigit() and int(message.text) > 0:
+            await message.delete()
+            await message.answer(text=f"Макс.цена за 1 ночь:${message.text}")
             data['price_max'] = message.text
             await message.answer(text='Сколько фотографий отеля нужно?',
                                  reply_markup=photos_count_kb())
             await state.set_state(state=UsersStates.amount_photos)
 
         else:
-            await bot.delete_message(message.from_user.id, message.message_id)
+            await message.delete()
             await message.answer(f'⚠️Цена - это целое положительное число.\n'
                                  f'Укажите еще раз макс.цену в $ за 1 ночь (например, 280)')
             await state.set_state(state=UsersStates.price_max)
@@ -249,7 +241,7 @@ async def check_amount_photos(callback: types.CallbackQuery, state: FSMContext) 
     Выполняется поиск отелей с учётом всех заданных условий.
     Устанавливаем состояние 'result'.
     """
-    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+    await callback.message.delete()
     await callback.message.answer(text=f"Кол-во фото для отеля: {callback.data.split('photos_count_')[1]}")
     async with state.proxy() as data:
         data['amount_photos'] = callback.data
@@ -265,12 +257,10 @@ async def get_result(message: types.Message, state: FSMContext) -> None:
     Устанавливаем состояние 'page'.
     """
     async with state.proxy() as data:
-        # pprint(data.as_dict())
         result = get_hotels(data)
 
         if len(result) != 0:
             data['result'] = result
-            # pprint(result)
 
             # Передача данных результата поиска в БД
             try:
@@ -291,6 +281,7 @@ async def get_result(message: types.Message, state: FSMContext) -> None:
             current_page = pages_list[current_page_num]
 
             await state.set_state(state=UsersStates.page)
+
             await show_page(chat_id=message.chat.id,
                             page_block=current_page,
                             page_num=current_page_num,
@@ -305,7 +296,7 @@ async def get_result(message: types.Message, state: FSMContext) -> None:
 
 
 @dp.message_handler(state=UsersStates.page)
-async def show_page(chat_id: str, page_block: dict, page_num: int, pages_total: int, state: FSMContext):
+async def show_page(chat_id: str, state: FSMContext, page_block: dict = None, page_num: int = None, pages_total: int = None):
     """
     Получаем номер страницы.
     Выводим на экран 2 сообщения об отеле:
@@ -313,46 +304,55 @@ async def show_page(chat_id: str, page_block: dict, page_num: int, pages_total: 
     - во втором — описание и inline-клавиатура, соответствующая номеру страницы.
     Устанавливаем состояние 'page'.
     """
-    page_keyboard = types.InlineKeyboardMarkup(row_width=3)
-    url_data = f'https://www.hotels.com/h{page_block["hotel_id"]}.Hotel-Information'
 
-    if page_num > 0:
-        page_keyboard.insert(types.InlineKeyboardButton(text="⬅️", callback_data='page_back'))
-    page_keyboard.insert(types.InlineKeyboardButton(text=f'отель №{page_num + 1} из {pages_total}',
-                                                    url=url_data))
-    if page_num < pages_total - 1:
-        page_keyboard.insert(types.InlineKeyboardButton(text="➡️", callback_data='page_next'))
-    page_keyboard.add(types.InlineKeyboardButton(text=f'⛔️завершить просмотр⛔️', callback_data='cancel_show'))
-
-    await state.set_state(state=UsersStates.page)
-
-    if len(page_block['image']) != 0:
-        await bot.send_media_group(chat_id=chat_id,
-                                   media=[types.InputMediaPhoto(i_image) for i_image in page_block['image']])
+    if chat_id is types.message.Message or page_block is None or page_num is None or pages_total is None:
+        """ Условие для случая некорректного ввода данных при просмотре страниц """
+        await bot.send_message(chat_id=chat_id['chat']['id'],
+                               text=f'‼️Сначала нужно нажать кнопку ⛔️завершить просмотр️⛔️\n'
+                                    f'Затем необходимо выбрать действие из списка\n{DEFAULT_COMMANDS}',
+                               parse_mode='HTML')
+        await state.finish()
     else:
-        with open('handlers\\loading_error.jpg', 'rb') as file:
-            await bot.send_photo(chat_id=chat_id,
-                                 photo=file)
+        page_keyboard = types.InlineKeyboardMarkup(row_width=3)
+        url_data = f'https://www.hotels.com/h{page_block["hotel_id"]}.Hotel-Information'
 
-    if page_block.get('distance'):
-        await bot.send_message(chat_id=chat_id,
-                               text=f"<b>Название отеля:</b> {page_block['name']}\n"
-                                    f"<b>Цена за 1 ночь:</b> {page_block['price']}\n"
-                                    f"<b>Цена общая:</b> {page_block['price_total']}\n"
-                                    f"<b>Расстояние от центра, км:</b> {page_block['distance']}\n"
-                                    f"<b>Рейтинг отеля:</b> {page_block['score']}/10\n"
-                                    f"<b>Кол-во отзывов:</b> {page_block['total']}",
-                               parse_mode='HTML',
-                               reply_markup=page_keyboard)
-    else:
-        await bot.send_message(chat_id=chat_id,
-                               text=f"<b>Название отеля:</b> {page_block['name']}\n"
-                                    f"<b>Цена за 1 ночь:</b> {page_block['price']}\n"
-                                    f"<b>Цена общая:</b> {page_block['price_total']}\n"
-                                    f"<b>Рейтинг отеля:</b> {page_block['score']}/10\n"
-                                    f"<b>Кол-во отзывов:</b> {page_block['total']}",
-                               parse_mode='HTML',
-                               reply_markup=page_keyboard)
+        if page_num > 0:
+            page_keyboard.insert(types.InlineKeyboardButton(text="⬅️", callback_data='page_back'))
+        page_keyboard.insert(types.InlineKeyboardButton(text=f'отель №{page_num + 1} из {pages_total}',
+                                                        url=url_data))
+        if page_num < pages_total - 1:
+            page_keyboard.insert(types.InlineKeyboardButton(text="➡️", callback_data='page_next'))
+        page_keyboard.add(types.InlineKeyboardButton(text=f'⛔️завершить просмотр⛔️', callback_data='cancel_show'))
+
+        await state.set_state(state=UsersStates.page)
+
+        if len(page_block['image']) != 0:
+            await bot.send_media_group(chat_id=chat_id,
+                                       media=[types.InputMediaPhoto(i_image) for i_image in page_block['image']])
+        else:
+            with open('handlers\\loading_error.jpg', 'rb') as file:
+                await bot.send_photo(chat_id=chat_id,
+                                     photo=file)
+
+        if page_block.get('distance'):
+            await bot.send_message(chat_id=chat_id,
+                                   text=f"<b>Название отеля:</b> {page_block['name']}\n"
+                                        f"<b>Цена за 1 ночь:</b> {page_block['price']}\n"
+                                        f"<b>Цена общая:</b> {page_block['price_total']}\n"
+                                        f"<b>Расстояние от центра, км:</b> {page_block['distance']}\n"
+                                        f"<b>Рейтинг отеля:</b> {page_block['score']}/10\n"
+                                        f"<b>Кол-во отзывов:</b> {page_block['total']}",
+                                   parse_mode='HTML',
+                                   reply_markup=page_keyboard)
+        else:
+            await bot.send_message(chat_id=chat_id,
+                                   text=f"<b>Название отеля:</b> {page_block['name']}\n"
+                                        f"<b>Цена за 1 ночь:</b> {page_block['price']}\n"
+                                        f"<b>Цена общая:</b> {page_block['price_total']}\n"
+                                        f"<b>Рейтинг отеля:</b> {page_block['score']}/10\n"
+                                        f"<b>Кол-во отзывов:</b> {page_block['total']}",
+                                   parse_mode='HTML',
+                                   reply_markup=page_keyboard)
 
 
 @dp.callback_query_handler(lambda callback: callback.data.startswith("page_"), state=UsersStates.page)
@@ -391,7 +391,7 @@ async def page_change(callback: types.CallbackQuery, state: FSMContext):
 
 
 @dp.callback_query_handler(lambda callback: callback.data.startswith("cancel_show"), state='*')
-async def page_change(callback: types.CallbackQuery, state: FSMContext):
+async def end_show(callback: types.CallbackQuery, state: FSMContext):
     """
     Завершаем просмотр отеля.
     Выполняем выход в главное меню.
